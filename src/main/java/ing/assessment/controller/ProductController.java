@@ -1,8 +1,7 @@
 package ing.assessment.controller;
 
-import ing.assessment.model.Product;
+import ing.assessment.db.Product;
 import ing.assessment.service.ProductService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,7 +12,6 @@ public class ProductController {
 
     private final ProductService productService;
 
-    @Autowired
     public ProductController(ProductService productService) {
         this.productService = productService;
     }
@@ -24,7 +22,7 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    public Product getProduct(@PathVariable Long id) {
+    public Product getProduct(@PathVariable("id") Integer id) {
         return productService.getProductById(id);
     }
 }

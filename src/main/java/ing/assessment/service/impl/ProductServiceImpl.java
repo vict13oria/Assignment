@@ -1,19 +1,18 @@
-package ing.assessment.service;
+package ing.assessment.service.impl;
 
-import ing.assessment.model.Product;
-import ing.assessment.repository.ProductRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import ing.assessment.db.Product;
+import ing.assessment.db.repository.ProductRepository;
+import ing.assessment.service.ProductService;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class ProductServiceImpl implements ProductService {
 
+
     private final ProductRepository productRepository;
 
-    @Autowired
     public ProductServiceImpl(ProductRepository productRepository) {
         this.productRepository = productRepository;
     }
@@ -24,9 +23,8 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Product getProductById(Long id) {
+    public Product getProductById(Integer id) {
         Optional<Product> product = productRepository.findById(id);
-        return product.orElseThrow(() -> 
-                new RuntimeException("Product with ID " + id + " not found"));
+        return product.orElseThrow();
     }
 }
