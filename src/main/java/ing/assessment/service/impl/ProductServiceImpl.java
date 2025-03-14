@@ -1,11 +1,10 @@
 package ing.assessment.service.impl;
 
-import ing.assessment.db.Product;
+import ing.assessment.db.product.Product;
 import ing.assessment.db.repository.ProductRepository;
 import ing.assessment.service.ProductService;
 import org.springframework.stereotype.Service;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class ProductServiceImpl implements ProductService {
@@ -23,8 +22,8 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Product getProductById(Integer id) {
-        Optional<Product> product = productRepository.findById(id);
-        return product.orElseThrow();
+    public List<Product> getProductsById(Integer id) {
+        List<Product> productList = productRepository.findByProductCk_Id(id);
+        return productList;
     }
 }
