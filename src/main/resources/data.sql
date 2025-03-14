@@ -1,0 +1,9 @@
+INSERT INTO product (id, location, name, price, quantity) VALUES (1, 0,  'Shoes', 400.0, 50);
+INSERT INTO product (id, location, name, price, quantity) VALUES (1, 1, 'Shoes', 400.0, 50);
+INSERT INTO product (id, location, name, price, quantity) VALUES (1, 2, 'Shoes', 400.0, 50);
+INSERT INTO product (id, location, name, price, quantity) VALUES (2, 0, 'Shirt', 100.0, 50);
+INSERT INTO product (id, location, name, price, quantity) VALUES (2, 1, 'Shirt', 100.0, 50);
+INSERT INTO product (id, location, name, price, quantity) VALUES (2, 2, 'Shirt', 100.0, 50);
+INSERT INTO product (id, location, name, price, quantity) VALUES (3, 0, 'Jeans', 200.0, 50);
+INSERT INTO product (id, location, name, price, quantity) VALUES (3, 1, 'Jeans', 200.0, 50);
+INSERT INTO product (id, location, name, price, quantity) VALUES (3, 2, 'Jeans', 200.0, 50);
