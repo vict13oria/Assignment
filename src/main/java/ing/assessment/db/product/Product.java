@@ -17,10 +17,4 @@ public class Product {
     private String name;
     private Double price;
     private Integer quantity;
-
-    public Product(String pName, Double pPrice, int pQuantity) {
-        this.name = pName;
-        this.price = pPrice;
-        this.quantity = pQuantity;
-    }
 }
