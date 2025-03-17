@@ -16,10 +16,13 @@ import java.util.List;
 public class Order {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     private Date timestamp;
-    @ElementCollection // todo: change; also, address the arrayList below to hold the qty as well
+    @ElementCollection
     private List<OrderProduct> orderProducts;
     private Double orderCost;
+    private Integer deliveryCost = 30; // Default cost of the order
+    private Integer deliveryTime = 2;  // Default delivery time for the order
 }
