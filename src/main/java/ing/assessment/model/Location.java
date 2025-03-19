@@ -4,5 +4,4 @@ public enum Location {
     MUNICH,
     COLOGNE,
     FRANKFURT
-
 }
