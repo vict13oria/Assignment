@@ -5,6 +5,9 @@ import ing.assessment.db.order.OrderProduct;
 import ing.assessment.db.product.Product;
 import ing.assessment.db.repository.OrderRepository;
 import ing.assessment.db.repository.ProductRepository;
+import ing.assessment.exception.InvalidOrderException;
+import ing.assessment.exception.ItemNotFound;
+import ing.assessment.model.Location;
 import ing.assessment.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,18 +27,28 @@ public class OrderServiceImpl implements OrderService {
         this.productRepository = productRepository;
     }
 
-
-    public void createOrder(List<OrderProduct> orderProductList) {
-        Order order = new Order();
+    public Order createOrder(List<OrderProduct> orderProductList) {
+        if (orderProductList == null || orderProductList.isEmpty()) {
+            throw new InvalidOrderException("Order must contain at least one product!");
+        }
 
         Double productsTotalCost = computeOrderProductsTotalSum(orderProductList);
-        Integer deliveryTime = order.getDeliveryTime() * computeExtraDays(orderProductList);
+        return populateOrder(new Order(), orderProductList, productsTotalCost);
+    }
 
-        order.setOrderCost(productsTotalCost > 1000 ? productsTotalCost * 0.9 : productsTotalCost);
-        order.setDeliveryTime(deliveryTime);
-        order.setDeliveryCost(productsTotalCost > 500 ? 0 : order.getDeliveryCost());
-        order.setOrderProducts(orderProductList);
-        order.setTimestamp(new Date());
+    public Order deleteOrderProduct(Integer orderId, Integer productId, Location location) {
+        Order orderToBeModified = orderRepository.findById(orderId).orElseThrow(() -> new ItemNotFound("Order with ID: "+ orderId +" was not found!"));
+
+        boolean removedOrderProduct = orderToBeModified.getOrderProducts().removeIf(orderProduct ->
+                orderProduct.getProductId().equals(productId) &&
+                        orderProduct.getLocation().equals(location));
+
+        if (!removedOrderProduct) {
+            throw new InvalidOrderException("Product with ID: " + productId + " at location: " + location + " not found in order!");
+        }
+
+        Double productsTotalCost = computeOrderProductsTotalSum(orderToBeModified.getOrderProducts());
+        return orderRepository.save(populateOrder(orderToBeModified, orderToBeModified.getOrderProducts(), productsTotalCost));
     }
 
     private Double computeOrderProductsTotalSum(List<OrderProduct> orderProductList) {
@@ -49,8 +62,27 @@ public class OrderServiceImpl implements OrderService {
                 .reduce(0.0, Double::sum);
     }
 
+    private Order populateOrder(Order order, List<OrderProduct> orderProductList, Double productsTotalCost) {
+
+        Integer deliveryTime = order.getDeliveryTime() * computeExtraDays(orderProductList);
+        order.setTimestamp(new Date());
+        order.setOrderProducts(orderProductList);
+        order.setOrderCost(computeOrderCost(productsTotalCost));
+        order.setDeliveryCost(computeDeliveryCost(productsTotalCost, order));
+        order.setDeliveryTime(deliveryTime);
+        return order;
+    }
+
     private Integer computeExtraDays(List<OrderProduct> orderProductList) {
         return Math.toIntExact(orderProductList.stream().map(OrderProduct::getLocation).distinct()
                 .count());
+    }
+
+    private Integer computeDeliveryCost(Double productsTotalCost, Order order) {
+        return productsTotalCost > 500 ? 0 : order.getDeliveryCost();
+    }
+
+    private Double computeOrderCost(Double productsTotalCost) {
+        return productsTotalCost > 1000 ? productsTotalCost * 0.9 : productsTotalCost;
     }
 }
