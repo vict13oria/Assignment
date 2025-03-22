@@ -4,7 +4,7 @@ import ing.assessment.db.order.Order;
 import ing.assessment.db.order.OrderProduct;
 import ing.assessment.model.Location;
 import ing.assessment.service.OrderService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,20 +14,32 @@ import java.util.List;
 @RequestMapping("/orders")
 public class OrderController {
 
-    @Autowired
-    private OrderService orderService;
+    private final OrderService orderService;
 
+    public OrderController(OrderService orderService) {
+        this.orderService = orderService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Order>> getAllOrders() {
+        return ResponseEntity.status(HttpStatus.OK).body(orderService.getAllOrders());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Order> getOrder(@PathVariable("id") Integer id) {
+        return ResponseEntity.status(HttpStatus.OK).body(orderService.getOrderById(id));
+    }
 
     @PostMapping
-    public Order createOrder(@RequestBody List<OrderProduct> orderProductList) {
-        return orderService.createOrder(orderProductList);
+    public ResponseEntity<Order> createOrder(@RequestBody List<OrderProduct> orderProductList) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createOrder(orderProductList));
     }
 
     @DeleteMapping("/{orderId}/product/{productId}/location/{location}")
-    public Order deleteOrderProduct(@PathVariable Integer orderId,
+    public ResponseEntity<HttpStatus> deleteOrderProduct(@PathVariable Integer orderId,
                                     @PathVariable Integer productId,
                                     @PathVariable Location location) {
-        return orderService.deleteOrderProduct(orderId, productId, location);
+        orderService.deleteOrderProduct(orderId, productId, location);
+        return new ResponseEntity<>(HttpStatus.OK);
     }
-
 }

@@ -5,11 +5,11 @@ import ing.assessment.db.order.OrderProduct;
 import ing.assessment.db.product.Product;
 import ing.assessment.db.repository.OrderRepository;
 import ing.assessment.db.repository.ProductRepository;
+import ing.assessment.exception.InsufficientStockException;
 import ing.assessment.exception.InvalidOrderException;
 import ing.assessment.exception.ItemNotFound;
 import ing.assessment.model.Location;
 import ing.assessment.service.OrderService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -21,22 +21,41 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
 
-    @Autowired
+
     public OrderServiceImpl(OrderRepository orderRepository, ProductRepository productRepository) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
     }
 
+    @Override
+    public List<Order> getAllOrders() {
+        return orderRepository.findAll();
+    }
+
+    @Override
+    public Order getOrderById(Integer id) {
+        return orderRepository.findById(id).orElseThrow(() -> new ItemNotFound("Order with ID: "+ id +" was not found!"));
+    }
+
+    @Override
+    public List<Order> getOrdersById(List<Integer> ids) {
+        return orderRepository.findAllById(ids);
+    }
+
+    @Override
     public Order createOrder(List<OrderProduct> orderProductList) {
         if (orderProductList == null || orderProductList.isEmpty()) {
             throw new InvalidOrderException("Order must contain at least one product!");
         }
 
         Double productsTotalCost = computeOrderProductsTotalSum(orderProductList);
-        return populateOrder(new Order(), orderProductList, productsTotalCost);
+        Order createdOrder = populateOrder(new Order(), orderProductList, productsTotalCost);
+        changeProductsFromOrderStock(orderProductList);
+        return orderRepository.save(createdOrder);
     }
 
-    public Order deleteOrderProduct(Integer orderId, Integer productId, Location location) {
+    @Override
+    public void deleteOrderProduct(Integer orderId, Integer productId, Location location) {
         Order orderToBeModified = orderRepository.findById(orderId).orElseThrow(() -> new ItemNotFound("Order with ID: "+ orderId +" was not found!"));
 
         boolean removedOrderProduct = orderToBeModified.getOrderProducts().removeIf(orderProduct ->
@@ -44,19 +63,19 @@ public class OrderServiceImpl implements OrderService {
                         orderProduct.getLocation().equals(location));
 
         if (!removedOrderProduct) {
-            throw new InvalidOrderException("Product with ID: " + productId + " at location: " + location + " not found in order!");
+            throw new ItemNotFound("Product with ID: " + productId + " at location: " + location + " not found in order!");
         }
 
         Double productsTotalCost = computeOrderProductsTotalSum(orderToBeModified.getOrderProducts());
-        return orderRepository.save(populateOrder(orderToBeModified, orderToBeModified.getOrderProducts(), productsTotalCost));
+        orderRepository.save(populateOrder(orderToBeModified, orderToBeModified.getOrderProducts(), productsTotalCost));
     }
 
     private Double computeOrderProductsTotalSum(List<OrderProduct> orderProductList) {
        return orderProductList.stream()
                 .map(orderProduct -> {
-                    Product product = productRepository.findByProductIdAndOrderId(
-                            orderProduct.getProductId(), orderProduct.getLocation()
-                    );
+                    Product product = productRepository.findByProductCk_IdAndProductCk_Location(
+                            orderProduct.getProductId(), orderProduct.getLocation());
+                    validateOrderProduct(product, orderProduct);
                     return product.getPrice() * orderProduct.getQuantity();
                 })
                 .reduce(0.0, Double::sum);
@@ -84,5 +103,24 @@ public class OrderServiceImpl implements OrderService {
 
     private Double computeOrderCost(Double productsTotalCost) {
         return productsTotalCost > 1000 ? productsTotalCost * 0.9 : productsTotalCost;
+    }
+
+    private void validateOrderProduct(Product product, OrderProduct orderProduct) {
+        if (product == null) {
+            throw new ItemNotFound("Product with ID: " + orderProduct.getProductId() + " at location: " + orderProduct.getLocation() + " is not available!");
+        }
+        if (product.getQuantity() < orderProduct.getQuantity()) {
+            throw new InsufficientStockException("There is no stock for product with ID: " + orderProduct.getProductId());
+        }
+    }
+
+    private void changeProductsFromOrderStock(List<OrderProduct> orderProducts) {
+        orderProducts.forEach(orderProduct -> {
+                    Product product = productRepository.findByProductCk_IdAndProductCk_Location(
+                            orderProduct.getProductId(), orderProduct.getLocation());
+                    Integer quantityAfterOrder = product.getQuantity() - orderProduct.getQuantity();
+                    product.setQuantity(quantityAfterOrder);
+                    productRepository.save(product);
+                });
     }
 }

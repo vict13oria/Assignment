@@ -4,18 +4,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.time.LocalDateTime;
 
 @ControllerAdvice
-public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+public class GlobalExceptionHandler {
 
 
     @ExceptionHandler(InvalidOrderException.class)
     ResponseEntity<ApiExceptionResponse> handleInvalidOrderException(InvalidOrderException ex) {
         ApiExceptionResponse apiExceptionResponse = new ApiExceptionResponse(ex.getMessage(), "Invalid Order", HttpStatus.BAD_REQUEST, LocalDateTime.now());
-        return ResponseEntity.status(apiExceptionResponse.getStatus()).body(apiExceptionResponse);
+        return ResponseEntity.badRequest().body(apiExceptionResponse);
     }
 
     @ExceptionHandler(ItemNotFound.class)

@@ -7,6 +7,9 @@ import ing.assessment.model.Location;
 import java.util.List;
 
 public interface OrderService {
+    List<Order> getAllOrders();
+    Order getOrderById(Integer id);
+    List<Order> getOrdersById(List<Integer> ids);
     Order createOrder(List<OrderProduct> orderProductList);
-    Order deleteOrderProduct(Integer idOrder, Integer idProduct, Location location);
+    void deleteOrderProduct(Integer idOrder, Integer idProduct, Location location);
 }

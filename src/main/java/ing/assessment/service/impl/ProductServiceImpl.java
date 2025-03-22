@@ -23,7 +23,6 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<Product> getProductsById(Integer id) {
-        List<Product> productList = productRepository.findByProductCk_Id(id);
-        return productList;
+        return productRepository.findByProductCk_Id(id);
     }
 }
