@@ -63,7 +63,7 @@ public class OrderServiceImpl implements OrderService {
                         orderProduct.getLocation().equals(location));
 
         if (!removedOrderProduct) {
-            throw new ItemNotFound("Product with ID: " + productId + " at location: " + location + " not found in order!");
+            throw new ItemNotFound("Product with ID: " + productId + " at location: " + location + " was not found in order!");
         }
 
         Double productsTotalCost = computeOrderProductsTotalSum(orderToBeModified.getOrderProducts());
@@ -107,7 +107,7 @@ public class OrderServiceImpl implements OrderService {
 
     private void validateOrderProduct(Product product, OrderProduct orderProduct) {
         if (product == null) {
-            throw new ItemNotFound("Product with ID: " + orderProduct.getProductId() + " at location: " + orderProduct.getLocation() + " is not available!");
+            throw new ItemNotFound("There is no product with ID: " + orderProduct.getProductId() + " at location: " + orderProduct.getLocation());
         }
         if (product.getQuantity() < orderProduct.getQuantity()) {
             throw new InsufficientStockException("There is no stock for product with ID: " + orderProduct.getProductId());
