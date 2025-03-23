@@ -22,8 +22,11 @@ import java.util.List;
 public class OrderServiceImpl implements OrderService {
 
     private static final String ORDER_NOT_FOUND = "Order with ID: '%s' was not found!";
-    private static final String PRODUCT_NOT_FOUND = "Product with ID: '%s' at location: '%s' was not found in order!";
-    private static final String STOCK_EXCEPTION = "There is no stock for product with ID: %s";
+    private static final String PRODUCT_NOT_FOUND = "Product with ID: '%s' at location: '%s' was not found!";
+    private static final String STOCK_EXCEPTION = "There is not enough stock for product with ID: %s at location: '%s'. Maximum quantity available: '%s'";
+
+    private static final Integer DEFAULT_DELIVERY_COST = 30;
+    private static final Integer DEFAULT_DELIVERY_TIME = 2;
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
@@ -56,44 +59,53 @@ public class OrderServiceImpl implements OrderService {
             throw new InvalidOrderException("Order must contain at least one product!");
         }
 
-        Double productsTotalCost = computeOrderProductsTotalSum(orderProductList);
+        Double productsTotalCost = computeOrderTotalCostForNewOrder(orderProductList);
         Order createdOrder = populateOrder(new Order(), orderProductList, productsTotalCost);
-        reduceProductStockAfterPlacingOrder(orderProductList);
+        decreaseProductStockAfterPlacingOrder(orderProductList);
         return orderRepository.save(createdOrder);
     }
 
     @Transactional
     @Override
-    public Order editOrderProductQuantity(Integer orderId, Integer productId, Location location, Integer quantity) {
-        Order order = orderRepository.findById(orderId).orElseThrow(() -> new ItemNotFound(String.format(ORDER_NOT_FOUND, orderId)));
+    public Order editOrderProductQuantity(Integer orderId, Integer productId, Location location, Integer newQuantity) {
+        Order orderToEdit = orderRepository.findById(orderId).orElseThrow(() -> new ItemNotFound(String.format(ORDER_NOT_FOUND, orderId)));
 
-        OrderProduct orderProduct = order.getOrderProducts().stream()
+        orderToEdit.getOrderProducts().stream()
                 .filter(op -> op.getProductId().equals(productId) && op.getLocation().equals(location))
                 .findFirst()
                 .map(filteredProduct -> {
-                    changeOrderProductStock(filteredProduct, quantity);
+                    changeOrderProductStock(filteredProduct, newQuantity);
                     return filteredProduct;
                 })
                 .orElseThrow(() -> new ItemNotFound(String.format(PRODUCT_NOT_FOUND, productId, location)));
 
-        return orderRepository.saveAndFlush(order);
+        Double productsTotalCost = computeOrderTotalCostForNewOrder(orderToEdit.getOrderProducts());
+        populateOrder(orderToEdit, orderToEdit.getOrderProducts(), productsTotalCost);
+
+        return orderRepository.saveAndFlush(orderToEdit);
     }
 
     @Transactional
     @Override
     public void deleteOrderProduct(Integer orderId, Integer productId, Location location) {
-        Order orderToBeModified = orderRepository.findById(orderId).orElseThrow(() -> new ItemNotFound(String.format(ORDER_NOT_FOUND, orderId)));
+        Order orderToBeModified = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ItemNotFound(String.format(ORDER_NOT_FOUND, orderId)));
 
-        boolean removedOrderProduct = orderToBeModified.getOrderProducts().removeIf(orderProduct ->
-                orderProduct.getProductId().equals(productId) &&
-                        orderProduct.getLocation().equals(location));
+        OrderProduct removedOrderProduct = orderToBeModified.getOrderProducts().stream()
+                .filter(orderProduct -> orderProduct.getProductId().equals(productId) &&
+                        orderProduct.getLocation().equals(location))
+                .findFirst()
+                .orElseThrow(() -> new ItemNotFound(String.format(PRODUCT_NOT_FOUND, productId, location)));
 
-        if (!removedOrderProduct) {
-            throw new ItemNotFound(String.format(PRODUCT_NOT_FOUND, productId, location));
-        }
+        orderToBeModified.getOrderProducts().remove(removedOrderProduct);
+        Double productsTotalCost = computeOrderTotalCostForExistingOrder(orderToBeModified.getOrderProducts());
 
-        Double productsTotalCost = computeOrderProductsTotalSum(orderToBeModified.getOrderProducts());
-        orderRepository.saveAndFlush(populateOrder(orderToBeModified, orderToBeModified.getOrderProducts(), productsTotalCost));
+        Product product =  productRepository.findByProductCk_IdAndProductCk_Location(productId, location);
+        increaseProductStockAfterDeletingItFromOrder(product, removedOrderProduct.getQuantity());
+
+        Order order = populateOrder(orderToBeModified, orderToBeModified.getOrderProducts(), productsTotalCost);
+
+        orderRepository.saveAndFlush(order);
     }
 
     @Transactional
@@ -101,16 +113,27 @@ public class OrderServiceImpl implements OrderService {
     public void deleteOrder(Integer orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ItemNotFound(String.format(ORDER_NOT_FOUND, orderId)));
-        increaseProductStockAfterDeletingFromOrder(order.getOrderProducts());
+        increaseProductsStockAfterDeletingOrder(order.getOrderProducts());
         orderRepository.delete(order);
     }
 
-    private Double computeOrderProductsTotalSum(List<OrderProduct> orderProductList) {
+    private Double computeOrderTotalCostForNewOrder(List<OrderProduct> orderProductList) {
        return orderProductList.stream()
                 .map(orderProduct -> {
                     Product product = productRepository.findByProductCk_IdAndProductCk_Location(
                             orderProduct.getProductId(), orderProduct.getLocation());
-                    validateOrderProduct(product, orderProduct);
+                    checkIfProductWantedForOrderExists(product, orderProduct);
+                    checkIfQuantityWantedForOrderIsAvailable(product, orderProduct);
+                    return product.getPrice() * orderProduct.getQuantity();
+                })
+                .reduce(0.0, Double::sum);
+    }
+
+    private Double computeOrderTotalCostForExistingOrder(List<OrderProduct> orderProductList) {
+       return orderProductList.stream()
+                .map(orderProduct -> {
+                    Product product = productRepository.findByProductCk_IdAndProductCk_Location(
+                            orderProduct.getProductId(), orderProduct.getLocation());
                     return product.getPrice() * orderProduct.getQuantity();
                 })
                 .reduce(0.0, Double::sum);
@@ -118,7 +141,7 @@ public class OrderServiceImpl implements OrderService {
 
     private Order populateOrder(Order order, List<OrderProduct> orderProductList, Double productsTotalCost) {
 
-        Integer deliveryTime = order.getDeliveryTime() * computeExtraDays(orderProductList);
+        Integer deliveryTime = DEFAULT_DELIVERY_TIME * computeExtraDays(orderProductList);
         order.setTimestamp(new Date());
         order.setOrderProducts(orderProductList);
         order.setOrderCost(computeOrderCost(productsTotalCost));
@@ -133,47 +156,71 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private Integer computeDeliveryCost(Double productsTotalCost, Order order) {
-        return productsTotalCost > 500 ? 0 : order.getDeliveryCost();
+        return productsTotalCost > 500 ? 0 : DEFAULT_DELIVERY_COST;
     }
 
     private Double computeOrderCost(Double productsTotalCost) {
         return productsTotalCost > 1000 ? productsTotalCost * 0.9 : productsTotalCost;
     }
 
-    private void validateOrderProduct(Product product, OrderProduct orderProduct) {
+    private void checkIfProductWantedForOrderExists(Product product, OrderProduct orderProduct) {
         if (product == null) {
             throw new ItemNotFound(String.format(PRODUCT_NOT_FOUND, orderProduct.getProductId(), orderProduct.getLocation()));
         }
+    }
+
+    private void checkIfQuantityWantedForOrderIsAvailable(Product product, OrderProduct orderProduct) {
         if (product.getQuantity() < orderProduct.getQuantity()) {
-            throw new InsufficientStockException(String.format(STOCK_EXCEPTION, orderProduct.getProductId()));
+            throw new InsufficientStockException(String.format(STOCK_EXCEPTION, orderProduct.getProductId(), orderProduct.getLocation(), product.getQuantity()));
         }
     }
 
-    private void changeOrderProductStock(OrderProduct orderProduct, Integer quantity) {
+    private void changeOrderProductStock(OrderProduct orderProduct, Integer newQuantity) {
         Product product = productRepository.findByProductCk_IdAndProductCk_Location(orderProduct.getProductId(), orderProduct.getLocation());
         Integer availableStock = product.getQuantity();
-        if (availableStock < quantity)
-            throw new InsufficientStockException(String.format(STOCK_EXCEPTION, orderProduct.getProductId()));
-        orderProduct.setQuantity(quantity);
+        Integer currentOrderQuantity = orderProduct.getQuantity();
+
+        if (availableStock < newQuantity)
+            throw new InsufficientStockException(String.format(STOCK_EXCEPTION, orderProduct.getProductId(), orderProduct.getLocation(), availableStock));
+
+        modifyProductStockAfterOrderProductQuantityChanged(orderProduct, currentOrderQuantity - newQuantity);
+        orderProduct.setQuantity(newQuantity);
     }
 
-    private void reduceProductStockAfterPlacingOrder(List<OrderProduct> orderProducts) {
+    private void decreaseProductStockAfterPlacingOrder(List<OrderProduct> orderProducts) {
         orderProducts.forEach(orderProduct -> {
                     Product product = productRepository.findByProductCk_IdAndProductCk_Location(
                             orderProduct.getProductId(), orderProduct.getLocation());
                     Integer quantityAfterPlacingOrder = product.getQuantity() - orderProduct.getQuantity();
-                    product.setQuantity(quantityAfterPlacingOrder);
-                    productRepository.save(product);
+                    if (quantityAfterPlacingOrder.equals(0)) {
+                        productRepository.delete(product);
+                    } else {
+                        product.setQuantity(quantityAfterPlacingOrder);
+                        productRepository.save(product);
+                    }
                 });
     }
 
-    private void increaseProductStockAfterDeletingFromOrder(List<OrderProduct> orderProducts) {
+
+    private void increaseProductsStockAfterDeletingOrder(List<OrderProduct> orderProducts) {
         orderProducts.forEach(orderProduct -> {
             Product product = productRepository.findByProductCk_IdAndProductCk_Location(
                     orderProduct.getProductId(), orderProduct.getLocation());
-            Integer quantityAfterDeletingOrder = product.getQuantity() + orderProduct.getQuantity();
-            product.setQuantity(quantityAfterDeletingOrder);
+            Integer quantityAfterPlacingOrder = product.getQuantity() + orderProduct.getQuantity();
+            product.setQuantity(quantityAfterPlacingOrder);
             productRepository.save(product);
         });
+    }
+
+    private void increaseProductStockAfterDeletingItFromOrder(Product product, Integer orderProductQuantity) {
+            Integer quantityAfterPlacingOrder = product.getQuantity() + orderProductQuantity;
+            product.setQuantity(quantityAfterPlacingOrder);
+            productRepository.save(product);
+    }
+
+    private void modifyProductStockAfterOrderProductQuantityChanged(OrderProduct orderProduct, Integer quantity) {
+            Product product = productRepository.findByProductCk_IdAndProductCk_Location(orderProduct.getProductId(), orderProduct.getLocation());
+            product.setQuantity(product.getQuantity() + quantity);
+            productRepository.save(product);
     }
 }

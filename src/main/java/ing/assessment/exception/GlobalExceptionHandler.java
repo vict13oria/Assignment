@@ -29,6 +29,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(apiExceptionResponse.getStatus()).body(apiExceptionResponse);
     }
 
+    @ExceptionHandler(InsufficientStockException.class)
+    ResponseEntity<ApiExceptionResponse> handleInsufficientStockException(InsufficientStockException ex) {
+        ApiExceptionResponse apiExceptionResponse = new ApiExceptionResponse(ex.getMessage(), "Product resource insufficient", HttpStatus.PRECONDITION_FAILED, LocalDateTime.now());
+        return ResponseEntity.status(apiExceptionResponse.getStatus()).body(apiExceptionResponse);
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiExceptionResponse> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
         String fieldName = ex.getName();

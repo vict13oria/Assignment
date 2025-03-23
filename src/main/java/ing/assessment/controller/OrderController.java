@@ -2,7 +2,6 @@ package ing.assessment.controller;
 
 import ing.assessment.db.order.Order;
 import ing.assessment.db.order.OrderProduct;
-import ing.assessment.db.product.Product;
 import ing.assessment.model.Location;
 import ing.assessment.service.OrderService;
 import jakarta.annotation.Nonnull;
@@ -33,7 +32,7 @@ public class OrderController {
         return ResponseEntity.ok().body(orderService.getOrderById(id));
     }
 
-    @GetMapping
+    @GetMapping("/get-orders-by-ids")
     public ResponseEntity<List<Order>> getOrders(@RequestParam("ids") List<Integer> ids) {
         return ResponseEntity.ok().body(orderService.getOrdersByIds(ids));
     }
@@ -43,7 +42,7 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createOrder(orderProductList));
     }
 
-    @PostMapping("/{orderId}")
+    @PostMapping("/{orderId}/edit-product-quantity")
     public ResponseEntity<Order> editOrderProductQuantity(
             @PathVariable("orderId") @Nonnull Integer orderId,
             @RequestParam("productId") Integer productId,
@@ -52,7 +51,7 @@ public class OrderController {
         return ResponseEntity.ok().body(orderService.editOrderProductQuantity(orderId, productId, location, quantity));
     }
 
-    @DeleteMapping("/{orderId}")
+    @DeleteMapping("/{orderId}/delete-product")
     public ResponseEntity<HttpStatus> deleteOrderProduct(
             @PathVariable("orderId") Integer orderId,
             @RequestParam("productId") Integer productId,
