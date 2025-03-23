@@ -2,8 +2,11 @@ package ing.assessment.controller;
 
 import ing.assessment.db.order.Order;
 import ing.assessment.db.order.OrderProduct;
+import ing.assessment.db.product.Product;
 import ing.assessment.model.Location;
 import ing.assessment.service.OrderService;
+import jakarta.annotation.Nonnull;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,12 +25,17 @@ public class OrderController {
 
     @GetMapping
     public ResponseEntity<List<Order>> getAllOrders() {
-        return ResponseEntity.status(HttpStatus.OK).body(orderService.getAllOrders());
+        return ResponseEntity.ok().body(orderService.getAllOrders());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Order> getOrder(@PathVariable("id") Integer id) {
-        return ResponseEntity.status(HttpStatus.OK).body(orderService.getOrderById(id));
+        return ResponseEntity.ok().body(orderService.getOrderById(id));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Order>> getOrders(@RequestParam("ids") List<Integer> ids) {
+        return ResponseEntity.ok().body(orderService.getOrdersByIds(ids));
     }
 
     @PostMapping
@@ -35,11 +43,28 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createOrder(orderProductList));
     }
 
-    @DeleteMapping("/{orderId}/product/{productId}/location/{location}")
-    public ResponseEntity<HttpStatus> deleteOrderProduct(@PathVariable Integer orderId,
-                                    @PathVariable Integer productId,
-                                    @PathVariable Location location) {
+    @PostMapping("/{orderId}")
+    public ResponseEntity<Order> editOrderProductQuantity(
+            @PathVariable("orderId") @Nonnull Integer orderId,
+            @RequestParam("productId") Integer productId,
+            @RequestParam("location") Location location,
+            @RequestBody @Valid Integer quantity) {
+        return ResponseEntity.ok().body(orderService.editOrderProductQuantity(orderId, productId, location, quantity));
+    }
+
+    @DeleteMapping("/{orderId}")
+    public ResponseEntity<HttpStatus> deleteOrderProduct(
+            @PathVariable("orderId") Integer orderId,
+            @RequestParam("productId") Integer productId,
+            @RequestParam("location") Location location) {
+
         orderService.deleteOrderProduct(orderId, productId, location);
-        return new ResponseEntity<>(HttpStatus.OK);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{orderId}")
+    public ResponseEntity<HttpStatus> deleteOrder(@PathVariable("orderId") Integer orderId) {
+        orderService.deleteOrder(orderId);
+        return ResponseEntity.noContent().build();
     }
 }

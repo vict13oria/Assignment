@@ -8,8 +8,10 @@ import java.util.List;
 
 public interface OrderService {
     List<Order> getAllOrders();
-    Order getOrderById(Integer id);
-    List<Order> getOrdersById(List<Integer> ids);
-    Order createOrder(List<OrderProduct> orderProductList);
-    void deleteOrderProduct(Integer idOrder, Integer idProduct, Location location);
+    Order getOrderById(Integer orderId);
+    List<Order> getOrdersByIds(List<Integer> orderIds);
+    Order createOrder(List<OrderProduct> orderProducts);
+    Order editOrderProductQuantity(Integer orderId, Integer productId, Location location, Integer quantity);
+    void deleteOrderProduct(Integer orderId, Integer productId, Location location);
+    void deleteOrder(Integer orderId);
 }

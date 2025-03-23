@@ -2,10 +2,7 @@ package ing.assessment.db.order;
 
 import ing.assessment.model.Location;
 import jakarta.persistence.Embeddable;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Getter
 @Data
