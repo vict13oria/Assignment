@@ -10,6 +10,7 @@ import ing.assessment.exception.InvalidOrderException;
 import ing.assessment.exception.ItemNotFound;
 import ing.assessment.model.Location;
 import ing.assessment.service.OrderService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProductRepository productRepository;
 
 
+    @Autowired
     public OrderServiceImpl(OrderRepository orderRepository, ProductRepository productRepository) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
@@ -81,7 +83,6 @@ public class OrderServiceImpl implements OrderService {
 
         Double productsTotalCost = computeOrderTotalCostForNewOrder(orderToEdit.getOrderProducts());
         populateOrder(orderToEdit, orderToEdit.getOrderProducts(), productsTotalCost);
-
         return orderRepository.saveAndFlush(orderToEdit);
     }
 
@@ -104,7 +105,6 @@ public class OrderServiceImpl implements OrderService {
         increaseProductStockAfterDeletingItFromOrder(product, removedOrderProduct.getQuantity());
 
         Order order = populateOrder(orderToBeModified, orderToBeModified.getOrderProducts(), productsTotalCost);
-
         orderRepository.saveAndFlush(order);
     }
 
@@ -117,7 +117,7 @@ public class OrderServiceImpl implements OrderService {
         orderRepository.delete(order);
     }
 
-    private Double computeOrderTotalCostForNewOrder(List<OrderProduct> orderProductList) {
+    public Double computeOrderTotalCostForNewOrder(List<OrderProduct> orderProductList) {
        return orderProductList.stream()
                 .map(orderProduct -> {
                     Product product = productRepository.findByProductCk_IdAndProductCk_Location(
@@ -140,7 +140,6 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private Order populateOrder(Order order, List<OrderProduct> orderProductList, Double productsTotalCost) {
-
         Integer deliveryTime = DEFAULT_DELIVERY_TIME * computeExtraDays(orderProductList);
         order.setTimestamp(new Date());
         order.setOrderProducts(orderProductList);
@@ -189,20 +188,20 @@ public class OrderServiceImpl implements OrderService {
 
     private void decreaseProductStockAfterPlacingOrder(List<OrderProduct> orderProducts) {
         orderProducts.forEach(orderProduct -> {
-                    Product product = productRepository.findByProductCk_IdAndProductCk_Location(
-                            orderProduct.getProductId(), orderProduct.getLocation());
-                    Integer quantityAfterPlacingOrder = product.getQuantity() - orderProduct.getQuantity();
-                    if (quantityAfterPlacingOrder.equals(0)) {
-                        productRepository.delete(product);
-                    } else {
-                        product.setQuantity(quantityAfterPlacingOrder);
-                        productRepository.save(product);
-                    }
-                });
+            Product product = productRepository.findByProductCk_IdAndProductCk_Location(
+                    orderProduct.getProductId(), orderProduct.getLocation());
+            Integer quantityAfterPlacingOrder = product.getQuantity() - orderProduct.getQuantity();
+            if (quantityAfterPlacingOrder.equals(0)) {
+                productRepository.delete(product);
+            } else {
+                product.setQuantity(quantityAfterPlacingOrder);
+                productRepository.save(product);
+            }
+        });
     }
 
 
-    private void increaseProductsStockAfterDeletingOrder(List<OrderProduct> orderProducts) {
+    public void increaseProductsStockAfterDeletingOrder(List<OrderProduct> orderProducts) {
         orderProducts.forEach(orderProduct -> {
             Product product = productRepository.findByProductCk_IdAndProductCk_Location(
                     orderProduct.getProductId(), orderProduct.getLocation());
