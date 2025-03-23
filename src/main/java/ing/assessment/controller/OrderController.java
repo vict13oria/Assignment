@@ -45,8 +45,8 @@ public class OrderController {
     @PatchMapping("/{orderId}/edit-product-quantity")
     public ResponseEntity<Order> editOrderProductQuantity(
             @PathVariable("orderId") @Nonnull Integer orderId,
-            @RequestParam("productId") Integer productId,
-            @RequestParam("location") Location location,
+            @RequestParam("productId") @Nonnull Integer productId,
+            @RequestParam("location") @Nonnull Location location,
             @RequestBody @Valid Integer quantity) {
         return ResponseEntity.ok().body(orderService.editOrderProductQuantity(orderId, productId, location, quantity));
     }
