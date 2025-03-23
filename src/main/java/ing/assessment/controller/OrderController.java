@@ -42,7 +42,7 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createOrder(orderProductList));
     }
 
-    @PostMapping("/{orderId}/edit-product-quantity")
+    @PatchMapping("/{orderId}/edit-product-quantity")
     public ResponseEntity<Order> editOrderProductQuantity(
             @PathVariable("orderId") @Nonnull Integer orderId,
             @RequestParam("productId") Integer productId,

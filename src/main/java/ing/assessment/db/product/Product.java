@@ -18,6 +18,7 @@ public class Product {
 
     @NotNull(message = "Product name cannot be null")
     private String name;
+    @NotNull(message = "Product price cannot be null")
     private Double price;
 
     @NotNull(message = "Quantity cannot be null")
